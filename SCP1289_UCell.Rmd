@@ -1,0 +1,92 @@
+---
+title: "20220817_AllCell_UCell"
+output: html_document
+date: '2022-08-17'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+# Import necessary R packages
+
+library(UCell)
+library(dplyr)
+library(Seurat)
+library(patchwork)
+library(ggsignif)
+library(ggplot2)
+```
+
+```{r}
+# Workflow based on: https://bioconductor.org/packages/release/bioc/vignettes/UCell/inst/doc/UCell_vignette_basic.html
+
+# Define gene signatures based on Reactome IFN Signaling Pathway 
+int_signatures <- list(Immune = c("IFIT3" ,"IRF4" ,"IRF9" ,"IRF2" ,"IRF7" ,"IRF6" ,"IRF1" ,"IRF5" ,"IRF8" ,"IRF3" ,"IFI6" ,"SAMHD1" ,"EGR1" ,"OAS2" ,"OAS1" ,"OAS3" ,"OASL" ,"BST2" ,"ADAR" ,"ISG20" ,"IFI27" ,"IP6K2" ,"IFITM3" ,"ISG15" ,"RNASEL" ,"XAF1" ,"RSAD2" ,"IFI35" ,"HLA-H" ,"HLA-G" ,"HLA-B" ,"HLA-F" ,"HLA-E" ,"HLA-A" ,"HLA-C" ,"IFIT5" ,"GBP2" ,"IFIT1" ,"PSMB8" ,"IFITM1" ,"IFIT2" ,"IFITM2" ,"MX2" ,"MX1" ,"SMAD7" ,"B2M" ,"FCGR1B" ,"FCGR1A" ,"PML" ,"PTAFR" ,"MT2A" ,"SP100" ,"NCAM1" ,"CD44" ,"VCAM1" ,"ICAM1" ,"IFI30" ,"GBP5" ,"GBP3" ,"GBP6" ,"GBP7" ,"GBP4" ,"GBP1" ,"HLA-DQA1" ,"HLA-DPA1" ,"HLA-DQB2" ,"HLA-DRB3" ,"HLA-DRB1" ,"HLA-DRA" ,"HLA-DQB1" ,"HLA-DRB4" ,"HLA-DQA2" ,"HLA-DPB1" ,"HLA-DRB5" ,"CIITA" ,"TRIM29" ,"TRIM35" ,"TRIM46" ,"TRIM45" ,"TRIM2" ,"TRIM10" ,"TRIM14" ,"TRIM48" ,"TRIM6" ,"TRIM17" ,"TRIM3" ,"TRIM38" ,"TRIM22" ,"TRIM31" ,"TRIM68" ,"TRIM62" ,"TRIM34" ,"TRIM26" ,"TRIM25" ,"TRIM5" ,"MID1" ,"TRIM8" ,"TRIM21"))
+```
+
+
+```{r}
+# Create Seurat Object from SCP1289 with UCell Score
+seurat.object <- AddModuleScore_UCell(readRDS(file = "SCP1289_all_cell_Seurat.rds"), 
+                                      features=int_signatures, name=NULL)
+head(seurat.object[[]])
+```
+
+```{r fig.height=2, fig.width=4}
+# Feature plot of Reactome IFN Signaling UCell signatures 
+FeaturePlot(seurat.object, reduction = "umap", 
+            features = names(int_signatures), ncol=3, order=TRUE)
+```
+
+
+```{r fig.height=8, fig.width=15}
+# Violin plot of Coarse Cell Annotations and Reactome IFN Signaling UCell score
+
+mycolors <- colorRampPalette(c("#605753", "#6E9B90", "#94B4D5", "#B6A4CF", "#DF8F7D"))(18)
+
+p <- VlnPlot(seurat.object, features = names(int_signatures), 
+             group.by = "Coarse_Cell_Annotations", pt.size = 0.01, 
+             cols = mycolors)
+
+p + geom_signif(comparisons = list(c("T Cells", "Squamous Cells"), c("T Cells", "Secretory Cells"), c("Plasmacytoid DCs", "T Cells"), c("T Cells", "Mitotic Basal Cells"), c("T Cells", "Macrophages"), c("T Cells", "Ionocytes"), c("T Cells", "Goblet Cells"), c("T Cells", "Erythroblasts"), c("T Cells", "Enteroendocrine Cells"), c("T Cells", "Developing Secretory and Goblet Cells"), c("T Cells", "Developing Ciliated Cells"),  c("T Cells", "Deuterosomal Cells"),  c("T Cells", "Dendritic Cells"),  c("T Cells", "Ciliated Cells"), c("T Cells", "Basal Cells"), c("T Cells", "B Cells")), map_signif_level = TRUE, textsize = 4, y_position = c(0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.20, 0.21, 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29)) +   ylim(NA, 0.3) + stat_summary(geom = "crossbar",fun = "mean", col = "black", size = 0.3) + ggtitle("Reactome Interferon Signaling Pathway")
+
+```
+
+```{r fig.height=3, fig.width=6}
+p+ stat_summary(geom = "crossbar",fun = "mean", col = "black", size = 0.4) + ggtitle("Reactome Interferon Signaling Pathway")
+```
+
+```{r fig.height=5, fig.width=20}
+# Create Seurat object with only T Cells
+
+a <- subset(x = seurat.object, subset = Detailed_Cell_Annotations == "CD8 T Cells")
+b <- subset(x = seurat.object, subset = Detailed_Cell_Annotations == "Interferon Responsive Cytotoxic CD8 T Cells")
+c <- subset(x = seurat.object, subset = Detailed_Cell_Annotations == "Early Response T Cells")
+tcell_only <- merge(x = a, y = list(b, c))
+
+tcell_only
+```
+
+```{r fig.height=2, fig.width=4}
+# Violin plot of T Cell subtypes and Reactome IFN Signaling UCell score
+pdf("F3B.pdf", width = 10, height = 5)
+p <- VlnPlot(tcell_only, features = names(int_signatures), group.by = "Detailed_Cell_Annotations", pt.size = 0.01, cols = c("#9b9fe1", "#efbcdb", "#87cbdd"))
+p + geom_signif(comparisons = list(c("CD8 T Cells", "Early Response T Cells"), 
+                                   c("CD8 T Cells", "Interferon Responsive Cytotoxic CD8 T Cells")), map_signif_level = TRUE, textsize = 6, y_position = c(0.13, 0.14, 0.15)) +   ylim(NA, 0.16) +theme(axis.text.x = element_text(angle = 0, vjust = 1, hjust=0.5)) + stat_summary(geom = "crossbar",fun = "mean", col = "black", size = 0.3) + ggtitle("Reactome Interferon Signaling Pathway") 
+dev.off()
+```
+
+
+```{r fig.height=3, fig.width=5}
+
+p + geom_signif(comparisons = list(c("CD8 T Cells", "Early Response T Cells"), 
+                                   c("CD8 T Cells", "Interferon Responsive Cytotoxic CD8 T Cells")), map_signif_level = TRUE, textsize = 6, y_position = c(0.13, 0.14, 0.15)) +   ylim(NA, 0.16) + stat_summary(geom = "crossbar",fun = "mean", col = "black", size = 0.3) + ggtitle("Reactome Interferon Signaling Pathway") 
+```
